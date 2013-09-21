@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+# encoding: utf-8
+
+import glob
+import os
+from os import path
+import re
+import sys
+
+import avro.schema
+from avro.datafile import DataFileReader, DataFileWriter
+from avro.io import DatumReader, DatumWriter
+import tables
+
+SONG_FILE_PATTERN = re.compile(r"^.*/data/([A-Z1-9])/([A-Z1-9])/([A-Z1-9])/.*\.h5")
+SCHEMA_PATH = path.join(path.split(__file__)[0], '../res/schema.json')
+
+def convert_path(input_path, output_path):
+	for root, dirs, files in os.walk(input_path):
+		[convert_file(path.join(root, file), output_path) for file in files]
+
+def convert_file(file, output_path):
+	if is_hdf5(file):
+		hdf5 = tables.openFile(file, mode='r')
+		sys.stdout.write(file)
+
+		metadata = hdf5.root.metadata.songs.cols
+		analysis = hdf5.root.analysis.songs.cols
+		musicbrainz = hdf5.root.musicbrainz.songs.cols
+
+		def write_fields(writer):
+			numb_songs = hdf5.root.metadata.songs.nrows
+			for index in range(numb_songs):
+				writer.append({
+					"artist_mbid": metadata.artist_mbid[index],
+					"artist_name": metadata.artist_name[index],
+				  "danceability": float(analysis.danceability[index]),
+					"duration": float(analysis.duration[index]),
+					"energy": float(analysis.energy[index]),
+					"key": int(analysis.key[index]),
+					"key_confidence": float(analysis.key_confidence[index]),
+					"loudness": float(analysis.loudness[index]),
+					"mode": int(analysis.mode[index]),
+					"mode_confidence": float(analysis.mode_confidence[index]),
+					"release": metadata.release[index],
+					"song_hotttnesss": float(metadata.song_hotttnesss[index]),
+					"tempo": float(analysis.tempo[index]),
+					"time_signature": int(analysis.time_signature[index]),
+					"time_signature_confidence": float(analysis.time_signature_confidence[index]),
+					"title": metadata.title[index],
+					"year": int(musicbrainz.year[index])
+				})
+
+		with_writer(file, output_path, write_fields)
+		hdf5.close()
+
+def is_hdf5(file):
+	return SONG_FILE_PATTERN.match(file)
+
+def with_writer(hdf5_file, output_path, func):
+	match = SONG_FILE_PATTERN.match(hdf5_file)
+	schema = avro.schema.parse(open(SCHEMA_PATH).read())
+
+	output_file = '{0}_{1}_{2}.avro'.format(match.group(1), match.group(2), match.group(3))
+	if path.isfile(path.join(output_path, output_file)):
+		sys.stdout.write(" ++> ")
+	else:
+		sys.stdout.write(" --> ")
+	sys.stdout.write(output_file)
+
+	writer = DataFileWriter(open(path.join(output_path, output_file), "a+b"), DatumWriter(), schema)
+
+	try:
+		func(writer)
+	except Exception:
+		sys.stdout.write(" (failed)")
+
+	sys.stdout.write('\n')
+	writer.close()
+
+
+
+if __name__ == "__main__":
+	sys.exit(convert_path(*sys.argv[1:]))
+
+
+
+

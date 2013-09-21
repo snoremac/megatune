@@ -1,0 +1,19 @@
+.gradle
+.profile*
+*.log
+build
+out
+tmp
+target
+
+### OSX ###
+.DS_Store
+
+### IntelliJ ###
+.name
+.idea
+
+*.iml
+*.ipr
+*.iws
+

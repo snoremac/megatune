@@ -1,0 +1,23 @@
+#!/usr/bin/env python
+# encoding: utf-8
+
+import os
+import sys
+
+import boto.ec2
+
+def attach_snapshot(snapshot_id, instance_id):
+	conn = boto.ec2.connect_to_region(os.environ['AWS_REGION'],
+		aws_access_key_id = os.environ['AWS_ACCESS_KEY'],
+		aws_secret_access_key = os.environ['AWS_SECRET_KEY'])
+
+	snapshot = conn.get_all_snapshots(snapshot_ids = snapshot_id)[0]
+	volume = snapshot.create_volume(os.environ['AWS_REGION'])
+	volume.attach(instance_id, '/dev/sdz')
+
+
+
+if __name__ == "__main__":
+	sys.exit(attach_snapshot(*sys.argv[1:]))
+
+

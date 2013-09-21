@@ -1,0 +1,24 @@
+
+{"namespace": "au.com.solidstate.megatune",
+ "type": "record",
+ "name": "Song",
+ "fields": [
+     {"name": "artist_mbid", "type": "string", "default": ""},
+     {"name": "artist_name", "type": "string", "default": ""},
+     {"name": "danceability", "type": "float", "default": 0.0},
+     {"name": "duration", "type": "float", "default": 0.0},
+     {"name": "energy", "type": "float", "default": 0.0},
+     {"name": "key", "type": "int", "default": 0},
+     {"name": "key_confidence", "type": "float", "default": 0.0},
+     {"name": "loudness", "type": "float", "default": 0.0},
+     {"name": "mode", "type": "int", "default": 0},
+     {"name": "mode_confidence", "type": "float", "default": 0.0},
+     {"name": "release", "type": "string", "default": ""},
+     {"name": "song_hotttnesss", "type": "float", "default": 0.0},
+     {"name": "tempo", "type": "float", "default": 0.0},
+     {"name": "time_signature", "type": "int", "default": 0},
+     {"name": "time_signature_confidence", "type": "float", "default": 0.0},
+     {"name": "title", "type": "string", "default": ""},
+     {"name": "year", "type": "int", "default": 0}
+ ]
+}
