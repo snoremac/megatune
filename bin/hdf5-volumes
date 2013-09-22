@@ -1,0 +1,43 @@
+#!/usr/bin/env python
+# encoding: utf-8
+
+# ec2-attach-snapshot snap-3cd0730f $(ec2metadata --instance-id) $(ec2metadata --availability-zone)
+
+import os
+import time
+import sys
+
+import boto.ec2
+
+VOLUME_SIZE = 500
+
+def hdf5_volumes(snapshot_id):
+	instance_id = `ec2metadata --instance-id`
+	availability_zone = `ec2metadata --availability-zone`
+
+	def attach_snapshot(conn):
+		snapshot = conn.get_all_snapshots(snapshot_ids = snapshot_id)[0]
+		volume = snapshot.create_volume(availability_zone, size = VOLUME_SIZE)
+		while volume.status != 'available':
+			volume = conn.get_all_volumes(volume_ids = volume.id)[0]
+			time.sleep(1)
+		volume.attach(instance_id, '/dev/xvdf')
+
+	def create_volume(conn):
+		volume = conn.create_volume(VOLUME_SIZE, availability_zone)
+		while volume.status != 'available':
+			volume = conn.get_all_volumes(volume_ids = volume.id)[0]
+			time.sleep(1)
+		volume.attach(instance_id, '/dev/xvdg')
+
+	with_connection(attach_snapshot)
+	with_connection(create_volume)
+
+def with_connection(func):
+	conn = boto.ec2.connect_to_region(os.environ['AWS_REGION'],
+		aws_access_key_id = os.environ['AWS_ACCESS_KEY'],
+		aws_secret_access_key = os.environ['AWS_SECRET_KEY'])
+	func(conn)
+
+if __name__ == "__main__":
+	sys.exit(hdf5_volumes(*sys.argv[1:]))
