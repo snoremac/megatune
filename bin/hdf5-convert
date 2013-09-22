@@ -61,7 +61,7 @@ def with_writer(hdf5_file, output_path, func):
 	match = SONG_FILE_PATTERN.match(hdf5_file)
 	schema = avro.schema.parse(open(SCHEMA_PATH).read())
 
-	output_file = '{0}_{1}_{2}.avro'.format(match.group(1), match.group(2), match.group(3))
+	output_file = '{0}_{1}.avro'.format(match.group(1), match.group(2), match.group(3))
 	if path.isfile(path.join(output_path, output_file)):
 		sys.stdout.write(" ++> ")
 	else:
