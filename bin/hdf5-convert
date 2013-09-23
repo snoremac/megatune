@@ -15,69 +15,97 @@ import tables
 SONG_FILE_PATTERN = re.compile(r"^.*/data/([A-Z1-9])/([A-Z1-9])/([A-Z1-9])/.*\.h5")
 SCHEMA_PATH = path.join(path.split(__file__)[0], '../res/schema.json')
 
+current_writer = None
+
 def convert_path(input_path, output_path):
+	success_count = 0
+	fail_count = 0
+
 	for root, dirs, files in os.walk(input_path):
-		[convert_file(path.join(root, file), output_path) for file in files]
+		for file in files:
+			if is_hdf5(path.join(root, file)):
+				try:
+					convert_file(path.join(root, file), output_path)
+					success_count += 1
+				except Exception as e:
+					print e
+					fail_count += 1
+
+	if current_writer:
+		current_writer.close()
+
+	print "Successful: " + str(success_count)
+	print "Failed: " + str(fail_count)
 
 def convert_file(file, output_path):
-	if is_hdf5(file):
-		hdf5 = tables.openFile(file, mode='r')
-		sys.stdout.write(file)
+	hdf5 = tables.openFile(file, mode='r')
 
-		metadata = hdf5.root.metadata.songs.cols
-		analysis = hdf5.root.analysis.songs.cols
-		musicbrainz = hdf5.root.musicbrainz.songs.cols
+	metadata = hdf5.root.metadata.songs.cols
+	analysis = hdf5.root.analysis.songs.cols
+	musicbrainz = hdf5.root.musicbrainz.songs.cols
 
-		def write_fields(writer):
-			numb_songs = hdf5.root.metadata.songs.nrows
-			for index in range(numb_songs):
-				writer.append({
-					"artist_mbid": metadata.artist_mbid[index].decode('utf-8'),
-					"artist_name": metadata.artist_name[index].decode('utf-8'),
-				  	"danceability": float(analysis.danceability[index]),
-					"duration": float(analysis.duration[index]),
-					"energy": float(analysis.energy[index]),
-					"key": int(analysis.key[index]),
-					"key_confidence": float(analysis.key_confidence[index]),
-					"loudness": float(analysis.loudness[index]),
-					"mode": int(analysis.mode[index]),
-					"mode_confidence": float(analysis.mode_confidence[index]),
-					"release": metadata.release[index].decode('utf-8'),
-					"song_hotttnesss": float(metadata.song_hotttnesss[index]),
-					"tempo": float(analysis.tempo[index]),
-					"time_signature": int(analysis.time_signature[index]),
-					"time_signature_confidence": float(analysis.time_signature_confidence[index]),
-					"title": metadata.title[index].decode('utf-8'),
-					"year": int(musicbrainz.year[index])
-				})
+	def write_fields(writer):
+		numb_songs = hdf5.root.metadata.songs.nrows
+		for index in range(numb_songs):
+			writer.append({
+				"artist_mbid": metadata.artist_mbid[index].decode('utf-8'),
+				"artist_name": metadata.artist_name[index].decode('utf-8'),
+			  	"danceability": float(analysis.danceability[index]),
+				"duration": float(analysis.duration[index]),
+				"energy": float(analysis.energy[index]),
+				"key": int(analysis.key[index]),
+				"key_confidence": float(analysis.key_confidence[index]),
+				"loudness": float(analysis.loudness[index]),
+				"mode": int(analysis.mode[index]),
+				"mode_confidence": float(analysis.mode_confidence[index]),
+				"release": metadata.release[index].decode('utf-8'),
+				"song_hotttnesss": float(metadata.song_hotttnesss[index]),
+				"tempo": float(analysis.tempo[index]),
+				"time_signature": int(analysis.time_signature[index]),
+				"time_signature_confidence": float(analysis.time_signature_confidence[index]),
+				"title": metadata.title[index].decode('utf-8'),
+				"year": int(musicbrainz.year[index])
+			})
 
+	try:
 		with_writer(file, output_path, write_fields)
+	finally:
 		hdf5.close()
+
 
 def is_hdf5(file):
 	return SONG_FILE_PATTERN.match(file)
 
 def with_writer(hdf5_file, output_path, func):
+	global current_writer
 	match = SONG_FILE_PATTERN.match(hdf5_file)
 	schema = avro.schema.parse(open(SCHEMA_PATH).read())
+	message = hdf5_file
 
-	output_file = '{0}_{1}.avro'.format(match.group(1), match.group(2), match.group(3))
+	output_file = '{0}.avro'.format(match.group(1), match.group(2), match.group(3))
 	if path.isfile(path.join(output_path, output_file)):
-		sys.stdout.write(" ++> ")
+		if not current_writer:
+			current_writer = new_writer(path.join(output_path, output_file), schema)
+		message += " ++> "
 	else:
-		sys.stdout.write(" --> ")
-	sys.stdout.write(output_file)
-
-	writer = DataFileWriter(open(path.join(output_path, output_file), "a+b"), DatumWriter(), schema)
+		if current_writer:
+			current_writer.close()
+		current_writer = new_writer(path.join(output_path, output_file), schema)
+		message += " --> "
+	
+	message += output_file
 
 	try:
-		func(writer)
-	except Exception:
-		sys.stdout.write(" (failed)")
-		raise Exception()
+		func(current_writer)
+	except Exception as e:
+		message += " (failed)"
+		raise e
+	finally:
+		print message
 
-	sys.stdout.write('\n')
-	writer.close()
+def new_writer(output_path, schema):
+	return DataFileWriter(open(output_path, "w+b"), DatumWriter(), schema, codec = 'deflate')
+
 
 
 
